@@ -13,3 +13,4 @@ spacy-transformers
 spacy==3.4
 spacy[transformers]
 np_utils
+seaborn
