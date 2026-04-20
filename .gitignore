@@ -163,4 +163,5 @@ cython_debug/
 .pyre/
 .idea
 Solutions
+plans/
 **/*.DS_Store
