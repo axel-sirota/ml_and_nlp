@@ -1,478 +1,457 @@
 #!/usr/bin/env python3
 """
-Comprehensive Jupyter Notebook Validation Script
-Validates exercise and solution notebooks for the Bread Financial Academy.
+Notebook validator for the ML & NLP course (PyTorch + modern NLP).
 
-Usage:
-    python validate_notebooks.py exercises/week_03/.../notebook.ipynb --type exercise
-    python validate_notebooks.py solutions/week_03/.../notebook.ipynb --type solution
-    python validate_notebooks.py --pair exercises/.../notebook.ipynb solutions/.../notebook.ipynb
-    python validate_notebooks.py --requirements exercises/.../notebook.ipynb
+Implements the spec in .claude/commands/validate-notebooks.md.
+
+Usage
+-----
+    # single exercise notebook
+    python validate_notebooks.py 1-Pre-NLP/1-Topic_Modelling_and_NER.ipynb --type exercise
+
+    # single solution notebook
+    python validate_notebooks.py Solutions/1-Topic_Modelling_and_NER_Solution.ipynb --type solution
+
+    # exercise+solution pair
+    python validate_notebooks.py --pair \\
+        2-Text-Similarity/5-CBOW_Word_Embeddings.ipynb \\
+        Solutions/5-CBOW_Word_Embeddings_Solution.ipynb
+
+Exit codes
+----------
+    0   all checks passed
+    1   one or more checks failed
+
+Checks (from .claude/commands/validate-notebooks.md + plans/migration_plan.md)
+-----------------------------------------------------------------------------
+    1. Python syntax in every code cell (ast.parse with IPython lines stripped).
+    2. No TensorFlow / Keras imports anywhere.
+    3. Exercise: lab cells contain `YOUR CODE` placeholders.
+       Solution: lab cells have NO `= None  # YOUR CODE` placeholder patterns.
+    4. Pair structure match: same cell count + same cell-type sequence.
+    5. Cell 0 is markdown and starts with "# " (title).
+    6. `!pip install` appears in the first 5 code cells.
+    7. Hyperparameter block (SEED = 42) appears in the first 10 code cells.
+    8. A wrap-up cell ("wrap", "congratulations", "what you learned", "summary")
+       appears in the last 3 cells.
+    9. Cell order: no obvious forward reference (a variable name used in an
+       earlier code cell and only *assigned* in a strictly later code cell
+       is flagged as a likely forward reference).
 """
+from __future__ import annotations
 
-import json
-import sys
-import ast
-import re
 import argparse
+import ast
+import json
+import re
+import sys
 from pathlib import Path
-from typing import Dict, List, Set, Tuple, Optional
 
-# Color codes for terminal output
-class Colors:
-    GREEN = '\033[92m'
-    YELLOW = '\033[93m'
-    RED = '\033[91m'
-    BLUE = '\033[94m'
-    RESET = '\033[0m'
-    BOLD = '\033[1m'
+# --------------------------------------------------------------------------
+# Patterns
+# --------------------------------------------------------------------------
+TF_PATTERNS: list[re.Pattern[str]] = [
+    re.compile(r"\bimport\s+tensorflow\b"),
+    re.compile(r"\bfrom\s+tensorflow\b"),
+    re.compile(r"\bimport\s+keras\b"),
+    re.compile(r"\bfrom\s+keras\b"),
+    re.compile(r"\btf\.keras\b"),
+    re.compile(r"\bkeras_preprocessing\b"),
+]
 
-# Import name to package name mapping
-IMPORT_TO_PACKAGE = {
-    'sklearn': 'scikit-learn',
-    'cv2': 'opencv-python',
-    'PIL': 'Pillow',
-    'yaml': 'PyYAML',
-    'dotenv': 'python-dotenv',
-}
+YOUR_CODE_RE = re.compile(r"YOUR\s*CODE", re.IGNORECASE)
+NONE_PLACEHOLDER_RE = re.compile(r"=\s*None\s*#\s*YOUR\s*CODE", re.IGNORECASE)
+SEED_RE = re.compile(r"\bSEED\s*=\s*42\b")
+WRAP_TOKENS = ("wrap-up", "wrap up", "congratulations", "what you learned", "summary")
 
 
-class NotebookValidator:
-    """Main validator class for Jupyter notebooks."""
+# --------------------------------------------------------------------------
+# Helpers
+# --------------------------------------------------------------------------
+def cell_src(cell: dict) -> str:
+    s = cell.get("source", "")
+    return "".join(s) if isinstance(s, list) else s
 
-    def __init__(self, notebook_path: Path):
-        self.path = notebook_path
-        self.notebook = None
-        self.cells = []
-        self.errors = []
-        self.warnings = []
-        self.load_notebook()
 
-    def load_notebook(self):
-        """Load and parse the notebook JSON."""
+def strip_ipython(src: str) -> str:
+    """Remove IPython magics / shell lines so ast.parse works.
+
+    Also consumes backslash line-continuations after a dropped line so that
+    multi-line `!pip install ... \\` blocks don't leave orphan indented
+    continuation lines behind.
+    """
+    out: list[str] = []
+    drop_continuation = False
+    for line in src.splitlines():
+        if drop_continuation:
+            # Continuing a previously-dropped ipython line
+            drop_continuation = line.rstrip().endswith("\\")
+            continue
+        stripped = line.lstrip()
+        if stripped.startswith(("!", "%", "?")):
+            drop_continuation = line.rstrip().endswith("\\")
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
+def load_nb(path: Path) -> dict:
+    with path.open() as f:
+        return json.load(f)
+
+
+def code_cells(nb: dict) -> list[tuple[int, dict]]:
+    return [(i, c) for i, c in enumerate(nb["cells"]) if c["cell_type"] == "code"]
+
+
+# --------------------------------------------------------------------------
+# Individual checks
+# --------------------------------------------------------------------------
+def check_syntax(nb: dict) -> list[str]:
+    errs: list[str] = []
+    for i, c in code_cells(nb):
+        src = strip_ipython(cell_src(c))
+        if not src.strip():
+            continue
         try:
-            with open(self.path, 'r', encoding='utf-8') as f:
-                self.notebook = json.load(f)
-                self.cells = self.notebook.get('cells', [])
-        except Exception as e:
-            self.errors.append(f"Failed to load notebook: {e}")
+            ast.parse(src)
+        except SyntaxError as e:
+            errs.append(
+                f"cell {i}: SyntaxError line {e.lineno} col {e.offset}: {e.msg}"
+            )
+    return errs
 
-    def validate_syntax(self) -> bool:
-        """Validate Python syntax in all code cells."""
-        print(f"\n{Colors.BLUE}{'='*70}{Colors.RESET}")
-        print(f"{Colors.BLUE}Validating Python Syntax{Colors.RESET}")
-        print(f"{Colors.BLUE}{'='*70}{Colors.RESET}\n")
 
-        syntax_errors = []
+def check_tf_free(nb: dict) -> list[str]:
+    errs: list[str] = []
+    for i, c in code_cells(nb):
+        src = cell_src(c)
+        for pat in TF_PATTERNS:
+            if pat.search(src):
+                errs.append(f"cell {i}: forbidden pattern /{pat.pattern}/")
+    return errs
 
-        for i, cell in enumerate(self.cells):
-            if cell.get('cell_type') != 'code':
+
+def check_title_cell0(nb: dict) -> list[str]:
+    cells = nb["cells"]
+    if not cells:
+        return ["notebook has zero cells"]
+    first = cells[0]
+    if first["cell_type"] != "markdown":
+        return [f"cell 0 must be markdown (got {first['cell_type']})"]
+    text = cell_src(first).lstrip()
+    if not text.startswith("# "):
+        return [f"cell 0 must start with '# Title' (got: {text[:60]!r})"]
+    return []
+
+
+def check_install_early(nb: dict) -> list[str]:
+    for _, c in code_cells(nb)[:5]:
+        src = cell_src(c)
+        if "!pip install" in src or "%pip install" in src:
+            return []
+    return ["no !pip install cell in first 5 code cells"]
+
+
+def check_hyperparams_early(nb: dict) -> list[str]:
+    for _, c in code_cells(nb)[:10]:
+        if SEED_RE.search(cell_src(c)):
+            return []
+    return ["no SEED = 42 hyperparameters cell in first 10 code cells"]
+
+
+def check_wrap_up(nb: dict) -> list[str]:
+    tail = " ".join(cell_src(c).lower() for c in nb["cells"][-3:])
+    if any(tok in tail for tok in WRAP_TOKENS):
+        return []
+    return [f"no wrap-up token in last 3 cells (expected one of {WRAP_TOKENS})"]
+
+
+def check_your_code_exercise(nb: dict) -> list[str]:
+    full = " ".join(cell_src(c) for _, c in code_cells(nb))
+    if YOUR_CODE_RE.search(full):
+        return []
+    return ["exercise notebook has no 'YOUR CODE' placeholders"]
+
+
+def check_no_placeholders_solution(nb: dict) -> list[str]:
+    errs: list[str] = []
+    for i, c in code_cells(nb):
+        src = cell_src(c)
+        if NONE_PLACEHOLDER_RE.search(src):
+            errs.append(f"cell {i}: solution still has '= None  # YOUR CODE' placeholder")
+    return errs
+
+
+def check_pair_structure(ex: dict, sol: dict) -> list[str]:
+    errs: list[str] = []
+    ex_cells, sol_cells = ex["cells"], sol["cells"]
+    if len(ex_cells) != len(sol_cells):
+        errs.append(
+            f"pair cell-count mismatch: exercise={len(ex_cells)} vs solution={len(sol_cells)}"
+        )
+    # Compare cell type sequence up to the shorter length
+    m = min(len(ex_cells), len(sol_cells))
+    mism: list[int] = []
+    for i in range(m):
+        if ex_cells[i]["cell_type"] != sol_cells[i]["cell_type"]:
+            mism.append(i)
+    if mism:
+        errs.append(
+            f"pair cell-type mismatch at indices (first 5 shown): {mism[:5]}"
+        )
+    return errs
+
+
+BUILTIN_NAMES: set[str] = set(dir(__builtins__)) if not isinstance(__builtins__, dict) else set(__builtins__.keys())
+
+
+class _ModuleScopeScan(ast.NodeVisitor):
+    """Collect names *used* and *assigned* at the top-level (module) scope only.
+
+    We deliberately do NOT recurse into function bodies, class bodies, lambdas,
+    or comprehensions, since names bound there are local and do not affect
+    cell-to-cell dependencies.
+    """
+
+    def __init__(self) -> None:
+        self.used: set[str] = set()
+        self.assigned: set[str] = set()
+        self.imported: set[str] = set()
+
+    # ---- scope stoppers -------------------------------------------------
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self.assigned.add(node.name)
+
+    visit_AsyncFunctionDef = visit_FunctionDef  # type: ignore[assignment]
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self.assigned.add(node.name)
+        for deco in node.decorator_list:
+            self.visit(deco)
+        for base in node.bases:
+            self.visit(base)
+
+    def visit_Lambda(self, node: ast.Lambda) -> None:  # noqa: D401
+        return None
+
+    def visit_ListComp(self, node: ast.ListComp) -> None:  # noqa: D401
+        return None
+
+    visit_SetComp = visit_ListComp  # type: ignore[assignment]
+    visit_DictComp = visit_ListComp  # type: ignore[assignment]
+    visit_GeneratorExp = visit_ListComp  # type: ignore[assignment]
+
+    # ---- collectors -----------------------------------------------------
+    def visit_Name(self, node: ast.Name) -> None:
+        if isinstance(node.ctx, ast.Load):
+            self.used.add(node.id)
+        elif isinstance(node.ctx, (ast.Store, ast.Del)):
+            # Simple stores at module level
+            self.assigned.add(node.id)
+
+    def visit_Assign(self, node: ast.Assign) -> None:
+        for t in node.targets:
+            if isinstance(t, ast.Name):
+                self.assigned.add(t.id)
+            elif isinstance(t, (ast.Tuple, ast.List)):
+                for elt in t.elts:
+                    if isinstance(elt, ast.Name):
+                        self.assigned.add(elt.id)
+        self.visit(node.value)
+
+    def visit_AugAssign(self, node: ast.AugAssign) -> None:
+        if isinstance(node.target, ast.Name):
+            self.assigned.add(node.target.id)
+        self.visit(node.value)
+
+    def visit_AnnAssign(self, node: ast.AnnAssign) -> None:
+        if isinstance(node.target, ast.Name):
+            self.assigned.add(node.target.id)
+        if node.value is not None:
+            self.visit(node.value)
+
+    def visit_For(self, node: ast.For) -> None:
+        if isinstance(node.target, ast.Name):
+            self.assigned.add(node.target.id)
+        elif isinstance(node.target, (ast.Tuple, ast.List)):
+            for elt in node.target.elts:
+                if isinstance(elt, ast.Name):
+                    self.assigned.add(elt.id)
+        self.visit(node.iter)
+        for stmt in node.body:
+            self.visit(stmt)
+        for stmt in node.orelse:
+            self.visit(stmt)
+
+    def visit_With(self, node: ast.With) -> None:
+        for item in node.items:
+            self.visit(item.context_expr)
+            if item.optional_vars is not None and isinstance(item.optional_vars, ast.Name):
+                self.assigned.add(item.optional_vars.id)
+        for stmt in node.body:
+            self.visit(stmt)
+
+    def visit_Import(self, node: ast.Import) -> None:
+        for n in node.names:
+            self.imported.add((n.asname or n.name).split(".")[0])
+            self.assigned.add((n.asname or n.name).split(".")[0])
+
+    def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        for n in node.names:
+            name = n.asname or n.name
+            self.imported.add(name)
+            self.assigned.add(name)
+
+
+def check_forward_reference(nb: dict) -> list[str]:
+    """Flag a NAME used at module scope in code cell i when it is only first
+    assigned at module scope in a strictly later code cell j > i.
+
+    Limits false positives by ignoring:
+      * names bound inside functions, classes, lambdas, comprehensions,
+      * Python builtins,
+      * imported names,
+      * dunder / private names.
+    """
+    cc = code_cells(nb)
+    if len(cc) < 2:
+        return []
+    used_per: list[set[str]] = []
+    assigned_per: list[set[str]] = []
+    imported_all: set[str] = set()
+    for _, c in cc:
+        src = strip_ipython(cell_src(c))
+        try:
+            tree = ast.parse(src)
+        except SyntaxError:
+            used_per.append(set())
+            assigned_per.append(set())
+            continue
+        scan = _ModuleScopeScan()
+        for stmt in tree.body:
+            scan.visit(stmt)
+        used_per.append(scan.used)
+        assigned_per.append(scan.assigned)
+        imported_all |= scan.imported
+
+    # first-assignment index for every name
+    first_assign: dict[str, int] = {}
+    for idx, a in enumerate(assigned_per):
+        for name in a:
+            first_assign.setdefault(name, idx)
+
+    errs: list[str] = []
+    seen: set[str] = set()
+    for idx, used in enumerate(used_per):
+        for name in used:
+            if name in BUILTIN_NAMES or name in imported_all or name.startswith("_"):
                 continue
-
-            cell_num = i + 1
-            source = self._get_cell_source(cell)
-
-            if not source.strip() or source.strip().startswith('!'):
-                continue
-
-            try:
-                ast.parse(source)
-                print(f"{Colors.GREEN}✅{Colors.RESET} Cell {cell_num}: Valid syntax")
-            except SyntaxError as e:
-                error_msg = f"Cell {cell_num}: Syntax error - {e.msg} at line {e.lineno}"
-                syntax_errors.append(error_msg)
-                print(f"{Colors.RED}❌{Colors.RESET} {error_msg}")
-            except IndentationError as e:
-                error_msg = f"Cell {cell_num}: Indentation error - {e.msg} at line {e.lineno}"
-                syntax_errors.append(error_msg)
-                print(f"{Colors.RED}❌{Colors.RESET} {error_msg}")
-            except Exception:
-                # Some edge cases are OK in notebooks (incomplete blocks, etc.)
-                print(f"{Colors.YELLOW}⚠️{Colors.RESET}  Cell {cell_num}: Skipped (incomplete code block)")
-
-        self.errors.extend(syntax_errors)
-
-        if syntax_errors:
-            print(f"\n{Colors.RED}Found {len(syntax_errors)} syntax errors{Colors.RESET}")
-            return False
-        else:
-            print(f"\n{Colors.GREEN}✅ All code cells have valid syntax!{Colors.RESET}")
-            return True
-
-    def validate_exercise_placeholders(self) -> bool:
-        """Validate that exercise notebook has proper = None placeholders in lab cells."""
-        print(f"\n{Colors.BLUE}{'='*70}{Colors.RESET}")
-        print(f"{Colors.BLUE}Validating Exercise Placeholders{Colors.RESET}")
-        print(f"{Colors.BLUE}{'='*70}{Colors.RESET}\n")
-
-        placeholder_pattern = re.compile(r'^\s*(\w+)\s*=\s*None\s*#.*YOUR CODE', re.MULTILINE)
-        lab_cells_found = 0
-        placeholder_counts = {}
-        issues = []
-
-        for i, cell in enumerate(self.cells):
-            if cell.get('cell_type') != 'code':
-                continue
-
-            cell_num = i + 1
-            source = self._get_cell_source(cell)
-
-            # Check if this is a lab cell
-            if 'Lab' in source and 'YOUR CODE' in source:
-                lab_cells_found += 1
-                placeholders = placeholder_pattern.findall(source)
-                placeholder_counts[cell_num] = placeholders
-
-                if placeholders:
-                    print(f"{Colors.GREEN}✅{Colors.RESET} Cell {cell_num} (Lab cell): Found {len(placeholders)} placeholder(s)")
-                    for var in placeholders:
-                        print(f"    - {var}")
-                else:
-                    issue = f"Cell {cell_num}: Lab cell has no '= None' placeholders"
-                    issues.append(issue)
-                    print(f"{Colors.YELLOW}⚠️{Colors.RESET}  {issue}")
-
-        if lab_cells_found == 0:
-            warning = "No lab cells found (cells with 'Lab' and 'YOUR CODE')"
-            self.warnings.append(warning)
-            print(f"\n{Colors.YELLOW}⚠️  {warning}{Colors.RESET}")
-            return True  # Not an error, just a warning
-
-        self.errors.extend(issues)
-
-        if issues:
-            print(f"\n{Colors.RED}Found {len(issues)} issue(s) with placeholders{Colors.RESET}")
-            return False
-        else:
-            print(f"\n{Colors.GREEN}✅ All {lab_cells_found} lab cells have proper placeholders!{Colors.RESET}")
-            return True
-
-    def validate_solution_completeness(self) -> bool:
-        """Validate that solution notebook has no = None placeholders in lab cells."""
-        print(f"\n{Colors.BLUE}{'='*70}{Colors.RESET}")
-        print(f"{Colors.BLUE}Validating Solution Completeness{Colors.RESET}")
-        print(f"{Colors.BLUE}{'='*70}{Colors.RESET}\n")
-
-        # Pattern to find actual assignments to None (not in comments)
-        none_assignment_pattern = re.compile(r'^\s*(\w+)\s*=\s*None\s*(?:#|$)', re.MULTILINE)
-        lab_cells_found = 0
-        issues = []
-
-        for i, cell in enumerate(self.cells):
-            if cell.get('cell_type') != 'code':
-                continue
-
-            cell_num = i + 1
-            source = self._get_cell_source(cell)
-
-            # Check if this is a lab cell (solution should have "SOLUTION" marker)
-            if 'Lab' in source and 'SOLUTION' in source:
-                lab_cells_found += 1
-
-                # Check for any = None assignments
-                none_assignments = []
-                for line in source.split('\n'):
-                    # Skip if line is a comment
-                    if line.strip().startswith('#'):
-                        continue
-                    # Check for = None pattern
-                    match = none_assignment_pattern.search(line)
-                    if match:
-                        none_assignments.append(match.group(1))
-
-                if none_assignments:
-                    issue = f"Cell {cell_num}: Solution cell still has '= None' assignments: {', '.join(none_assignments)}"
-                    issues.append(issue)
-                    print(f"{Colors.RED}❌{Colors.RESET} {issue}")
-                else:
-                    print(f"{Colors.GREEN}✅{Colors.RESET} Cell {cell_num} (Lab solution): Complete implementation")
-
-        if lab_cells_found == 0:
-            warning = "No lab solution cells found (cells with 'Lab' and 'SOLUTION')"
-            self.warnings.append(warning)
-            print(f"\n{Colors.YELLOW}⚠️  {warning}{Colors.RESET}")
-            return True  # Not an error, just a warning
-
-        self.errors.extend(issues)
-
-        if issues:
-            print(f"\n{Colors.RED}Found {len(issues)} incomplete solution(s){Colors.RESET}")
-            return False
-        else:
-            print(f"\n{Colors.GREEN}✅ All {lab_cells_found} lab solutions are complete!{Colors.RESET}")
-            return True
-
-    def extract_imports(self) -> Set[str]:
-        """Extract all import statements from the notebook."""
-        imports = set()
-
-        for cell in self.cells:
-            if cell.get('cell_type') != 'code':
-                continue
-
-            source = self._get_cell_source(cell)
-
-            for line in source.split('\n'):
-                line = line.strip()
-                if line.startswith('import ') or line.startswith('from '):
-                    imports.add(line)
-
-        return imports
-
-    def validate_imports(self) -> bool:
-        """Validate that all imports are available."""
-        print(f"\n{Colors.BLUE}{'='*70}{Colors.RESET}")
-        print(f"{Colors.BLUE}Validating Import Availability{Colors.RESET}")
-        print(f"{Colors.BLUE}{'='*70}{Colors.RESET}\n")
-
-        imports = self.extract_imports()
-
-        if not imports:
-            print(f"{Colors.YELLOW}⚠️  No imports found in notebook{Colors.RESET}")
-            return True
-
-        print(f"Found {len(imports)} import statement(s)\n")
-
-        failed_imports = []
-
-        for import_stmt in sorted(imports):
-            # Extract module name
-            if import_stmt.startswith('import '):
-                module = import_stmt.split()[1].split('.')[0].split(' as ')[0]
-            elif import_stmt.startswith('from '):
-                module = import_stmt.split()[1].split('.')[0]
-            else:
-                continue
-
-            # Skip special modules
-            if module in ['__future__']:
-                continue
-
-            # Try to import
-            try:
-                __import__(module)
-                print(f"{Colors.GREEN}✅{Colors.RESET} {import_stmt}")
-            except ImportError as e:
-                print(f"{Colors.RED}❌{Colors.RESET} {import_stmt}")
-                print(f"    Error: {e}")
-                failed_imports.append(module)
-            except Exception as e:
-                print(f"{Colors.YELLOW}⚠️{Colors.RESET}  {import_stmt}")
-                print(f"    Warning: {e}")
-
-        if failed_imports:
-            print(f"\n{Colors.RED}Missing modules: {', '.join(set(failed_imports))}{Colors.RESET}")
-            self.errors.extend([f"Missing module: {m}" for m in failed_imports])
-            return False
-        else:
-            print(f"\n{Colors.GREEN}✅ All imports available!{Colors.RESET}")
-            return True
-
-    def generate_requirements(self, output_path: Optional[Path] = None) -> List[str]:
-        """Generate requirements.txt from notebook imports."""
-        print(f"\n{Colors.BLUE}{'='*70}{Colors.RESET}")
-        print(f"{Colors.BLUE}Generating Requirements{Colors.RESET}")
-        print(f"{Colors.BLUE}{'='*70}{Colors.RESET}\n")
-
-        imports = self.extract_imports()
-        packages = set()
-
-        for import_stmt in imports:
-            # Extract module name
-            if import_stmt.startswith('import '):
-                module = import_stmt.split()[1].split('.')[0].split(' as ')[0]
-            elif import_stmt.startswith('from '):
-                module = import_stmt.split()[1].split('.')[0]
-            else:
-                continue
-
-            # Skip standard library modules
-            if module in ['sys', 'os', 'json', 're', 'time', 'pathlib', 'typing', 'ast',
-                          'argparse', 'collections', 'itertools', 'functools', 'io']:
-                continue
-
-            # Map import name to package name
-            package = IMPORT_TO_PACKAGE.get(module, module)
-            packages.add(package)
-
-        requirements = sorted(packages)
-
-        print("Required packages:")
-        for pkg in requirements:
-            print(f"  - {pkg}")
-
-        if output_path:
-            with open(output_path, 'w') as f:
-                f.write('\n'.join(requirements) + '\n')
-            print(f"\n{Colors.GREEN}✅ Requirements written to {output_path}{Colors.RESET}")
-
-        return requirements
-
-    def _get_cell_source(self, cell: dict) -> str:
-        """Extract source code from a cell."""
-        source = cell.get('source', [])
-        if isinstance(source, list):
-            return ''.join(source)
-        return source
-
-    def print_summary(self):
-        """Print validation summary."""
-        print(f"\n{Colors.BOLD}{'='*70}{Colors.RESET}")
-        print(f"{Colors.BOLD}Validation Summary{Colors.RESET}")
-        print(f"{Colors.BOLD}{'='*70}{Colors.RESET}\n")
-
-        print(f"Notebook: {self.path.name}")
-        print(f"Total cells: {len(self.cells)}")
-        print(f"Code cells: {sum(1 for c in self.cells if c.get('cell_type') == 'code')}")
-        print(f"Markdown cells: {sum(1 for c in self.cells if c.get('cell_type') == 'markdown')}")
-
-        if self.errors:
-            print(f"\n{Colors.RED}❌ Errors: {len(self.errors)}{Colors.RESET}")
-            for error in self.errors:
-                print(f"  - {error}")
-        else:
-            print(f"\n{Colors.GREEN}✅ No errors found!{Colors.RESET}")
-
-        if self.warnings:
-            print(f"\n{Colors.YELLOW}⚠️  Warnings: {len(self.warnings)}{Colors.RESET}")
-            for warning in self.warnings:
-                print(f"  - {warning}")
-
-
-def validate_paired_notebooks(exercise_path: Path, solution_path: Path) -> bool:
-    """Validate that exercise and solution notebooks have matching structure."""
-    print(f"\n{Colors.BLUE}{'='*70}{Colors.RESET}")
-    print(f"{Colors.BLUE}Validating Paired Notebooks{Colors.RESET}")
-    print(f"{Colors.BLUE}{'='*70}{Colors.RESET}\n")
-
-    # Load both notebooks
-    with open(exercise_path, 'r') as f:
-        exercise_nb = json.load(f)
-    with open(solution_path, 'r') as f:
-        solution_nb = json.load(f)
-
-    exercise_cells = exercise_nb.get('cells', [])
-    solution_cells = solution_nb.get('cells', [])
-
-    issues = []
-
-    # Check cell count
-    if len(exercise_cells) != len(solution_cells):
-        issue = f"Cell count mismatch: Exercise has {len(exercise_cells)}, Solution has {len(solution_cells)}"
-        issues.append(issue)
-        print(f"{Colors.RED}❌{Colors.RESET} {issue}")
-    else:
-        print(f"{Colors.GREEN}✅{Colors.RESET} Cell count matches: {len(exercise_cells)} cells")
-
-    # Check cell types match
-    min_cells = min(len(exercise_cells), len(solution_cells))
-    type_mismatches = 0
-
-    for i in range(min_cells):
-        ex_type = exercise_cells[i].get('cell_type')
-        sol_type = solution_cells[i].get('cell_type')
-
-        if ex_type != sol_type:
-            type_mismatches += 1
-            issue = f"Cell {i+1}: Type mismatch (Exercise: {ex_type}, Solution: {sol_type})"
-            issues.append(issue)
-            print(f"{Colors.RED}❌{Colors.RESET} {issue}")
-
-    if type_mismatches == 0:
-        print(f"{Colors.GREEN}✅{Colors.RESET} All cell types match")
-    else:
-        print(f"{Colors.RED}❌{Colors.RESET} Found {type_mismatches} cell type mismatches")
-
-    # Summary
-    if issues:
-        print(f"\n{Colors.RED}Paired validation FAILED: {len(issues)} issue(s){Colors.RESET}")
-        return False
-    else:
-        print(f"\n{Colors.GREEN}✅ Paired validation PASSED!{Colors.RESET}")
-        return True
-
-
-def main():
-    parser = argparse.ArgumentParser(
-        description='Validate Jupyter notebooks for Bread Financial Academy',
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Validate exercise notebook
-  python validate_notebooks.py exercises/week_03/.../notebook.ipynb --type exercise
-
-  # Validate solution notebook
-  python validate_notebooks.py solutions/week_03/.../notebook.ipynb --type solution
-
-  # Validate paired notebooks
-  python validate_notebooks.py --pair exercises/.../notebook.ipynb solutions/.../notebook.ipynb
-
-  # Generate requirements.txt
-  python validate_notebooks.py exercises/.../notebook.ipynb --requirements
-        """
+            fa = first_assign.get(name)
+            if fa is not None and fa > idx:
+                cell_idx_of_use = cc[idx][0]
+                cell_idx_of_def = cc[fa][0]
+                msg = (
+                    f"forward-ref: name '{name}' used in cell {cell_idx_of_use} "
+                    f"but first assigned in cell {cell_idx_of_def}"
+                )
+                if msg not in seen:
+                    seen.add(msg)
+                    errs.append(msg)
+    return errs[:15]
+
+
+# --------------------------------------------------------------------------
+# High-level validators
+# --------------------------------------------------------------------------
+def validate_notebook(path: Path, kind: str) -> list[str]:
+    """kind in {"exercise", "solution"}."""
+    nb = load_nb(path)
+    errs: list[str] = []
+    errs += check_title_cell0(nb)
+    errs += check_tf_free(nb)
+    errs += check_syntax(nb)
+    errs += check_install_early(nb)
+    errs += check_hyperparams_early(nb)
+    errs += check_wrap_up(nb)
+    if kind == "exercise":
+        errs += check_your_code_exercise(nb)
+    elif kind == "solution":
+        errs += check_no_placeholders_solution(nb)
+    errs += check_forward_reference(nb)
+    return errs
+
+
+def validate_pair(ex_path: Path, sol_path: Path) -> tuple[list[str], list[str], list[str]]:
+    ex_errs = validate_notebook(ex_path, "exercise")
+    sol_errs = validate_notebook(sol_path, "solution")
+    ex_nb, sol_nb = load_nb(ex_path), load_nb(sol_path)
+    pair_errs = check_pair_structure(ex_nb, sol_nb)
+    return ex_errs, sol_errs, pair_errs
+
+
+# --------------------------------------------------------------------------
+# CLI
+# --------------------------------------------------------------------------
+def _print_result(label: str, path: Path, errs: list[str]) -> None:
+    nb = load_nb(path)
+    n = len(nb["cells"])
+    size_kb = round(path.stat().st_size / 1024, 1)
+    status = "PASS" if not errs else "FAIL"
+    print(f"\n[{label}] {path}")
+    print(f"  cells={n}  size={size_kb} KB  status={status}")
+    for e in errs:
+        print(f"    - {e}")
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description="Validate course notebooks.")
+    ap.add_argument("notebook", nargs="?", help="Path to a single notebook.")
+    ap.add_argument(
+        "--type",
+        choices=("exercise", "solution"),
+        help="Kind of notebook when validating a single file.",
     )
+    ap.add_argument(
+        "--pair",
+        nargs=2,
+        metavar=("EXERCISE", "SOLUTION"),
+        help="Validate an exercise+solution pair together.",
+    )
+    args = ap.parse_args()
 
-    parser.add_argument('notebook', nargs='?', type=Path, help='Path to notebook file')
-    parser.add_argument('--type', choices=['exercise', 'solution'], help='Notebook type to validate')
-    parser.add_argument('--pair', nargs=2, type=Path, metavar=('EXERCISE', 'SOLUTION'),
-                        help='Validate paired exercise and solution notebooks')
-    parser.add_argument('--requirements', action='store_true', help='Generate requirements.txt')
+    any_fail = False
 
-    args = parser.parse_args()
-
-    # Paired validation
     if args.pair:
-        exercise_path, solution_path = args.pair
+        ex_path = Path(args.pair[0])
+        sol_path = Path(args.pair[1])
+        for p in (ex_path, sol_path):
+            if not p.exists():
+                print(f"MISSING FILE: {p}")
+                return 1
+        ex_errs, sol_errs, pair_errs = validate_pair(ex_path, sol_path)
+        _print_result("EXERCISE", ex_path, ex_errs)
+        _print_result("SOLUTION", sol_path, sol_errs)
+        if pair_errs:
+            print("\n[PAIR] structural consistency  status=FAIL")
+            for e in pair_errs:
+                print(f"    - {e}")
+        else:
+            print("\n[PAIR] structural consistency  status=PASS")
+        any_fail = bool(ex_errs or sol_errs or pair_errs)
+        return 1 if any_fail else 0
 
-        if not exercise_path.exists():
-            print(f"{Colors.RED}❌ Exercise notebook not found: {exercise_path}{Colors.RESET}")
-            sys.exit(1)
-        if not solution_path.exists():
-            print(f"{Colors.RED}❌ Solution notebook not found: {solution_path}{Colors.RESET}")
-            sys.exit(1)
+    if not args.notebook or not args.type:
+        ap.error("provide NOTEBOOK and --type, or use --pair EX SOL")
 
-        success = validate_paired_notebooks(exercise_path, solution_path)
-        sys.exit(0 if success else 1)
-
-    # Single notebook validation
-    if not args.notebook:
-        parser.print_help()
-        sys.exit(1)
-
-    if not args.notebook.exists():
-        print(f"{Colors.RED}❌ Notebook not found: {args.notebook}{Colors.RESET}")
-        sys.exit(1)
-
-    validator = NotebookValidator(args.notebook)
-
-    if validator.errors:
-        print(f"{Colors.RED}❌ Failed to load notebook{Colors.RESET}")
-        sys.exit(1)
-
-    # Run validations based on type
-    all_passed = True
-
-    # Always validate syntax and imports
-    all_passed &= validator.validate_syntax()
-    all_passed &= validator.validate_imports()
-
-    # Type-specific validations
-    if args.type == 'exercise':
-        all_passed &= validator.validate_exercise_placeholders()
-    elif args.type == 'solution':
-        all_passed &= validator.validate_solution_completeness()
-
-    # Generate requirements if requested
-    if args.requirements:
-        req_path = args.notebook.parent / 'requirements.txt'
-        validator.generate_requirements(req_path)
-
-    # Print summary
-    validator.print_summary()
-
-    # Exit with appropriate code
-    sys.exit(0 if all_passed else 1)
+    path = Path(args.notebook)
+    if not path.exists():
+        print(f"MISSING FILE: {path}")
+        return 1
+    errs = validate_notebook(path, args.type)
+    _print_result(args.type.upper(), path, errs)
+    return 1 if errs else 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

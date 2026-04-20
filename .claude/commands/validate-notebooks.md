@@ -55,6 +55,7 @@ done
 ✅ **Pair structure matches** — Same cell count and cell types
 ✅ **Cell order is sound** — Sections flow logically: Setup → Theory → Demo → Lab → Wrap-up; no forward references (a cell must not use a variable defined in a later cell)
 ✅ **Matches migration plan** — If `plans/migration_plan.md` exists, read the section for this notebook (search by notebook number/name) and verify: (1) section titles match the plan's outline, (2) all labs listed in the plan are present, (3) hyperparameter values match the plan's hyperparameter block, (4) the dataset URL matches the plan's dataset entry. Flag any deviation as a warning.
+✅ **No AI-generated artifacts** — Zero m-dashes (`—`), en-dashes (`–`), and emojis anywhere in markdown or code cells. These are signatures of AI-generated text and must be removed: replace `—` with ` - `, `–` with `-`, and delete any emoji characters.
 
 ## Project Structure Reference
 
