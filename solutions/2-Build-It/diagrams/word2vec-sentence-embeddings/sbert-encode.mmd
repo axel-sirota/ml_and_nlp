@@ -1,0 +1,7 @@
+graph TD
+    A[Input sentence] --> B[Pretrained BERT encoder six layers]
+    B --> C[Token vectors one per token]
+    C --> D[Mean pool over tokens]
+    D --> E[Single 384 dim sentence vector]
+    E --> F[Cosine similarity tracks meaning]
+    F --> G[Word order and composition respected]

@@ -1,0 +1,8 @@
+graph TD
+    A[NumPy ndarray] --> B[PyTorch tensor]
+    B --> C[Same shape and dtype API]
+    B --> D[Optional GPU placement]
+    B --> E[Optional autograd tracking]
+    D --> F[Runs on cuda device]
+    E --> G[backward computes grad]
+    C --> H[Drop-in for NumPy math]

@@ -1,0 +1,6 @@
+graph TD
+    A[X_tensor float32 features] --> C[TensorDataset pairs X with y]
+    B[y_tensor long labels] --> C
+    C --> D[DataLoader shuffle batch_size 64]
+    D --> E[Batch xb yb]
+    E --> F[Feeds the training loop]

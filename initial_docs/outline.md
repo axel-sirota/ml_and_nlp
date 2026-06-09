@@ -11,7 +11,7 @@ Through-line: every notebook builds toward a fine-tuned transformer in a simple 
 - Why NLP is hard: ambiguity, tokenization, morphology.
 - Tokenization and normalization (spaCy / TextBlob).
 - Named Entity Recognition with spaCy displacy.
-- Topic modelling (LDA / BERTopic) on a small corpus.
+- Topic modelling (LDA) on a small corpus.
 - Tools-first, no deep learning yet. Bridge: "watch one line do this next."
 - Objectives: read raw text with classical tools; extract entities and topics with no modelling.
 

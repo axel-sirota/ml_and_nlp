@@ -1,0 +1,7 @@
+graph TD
+    A[Raw sentence] --> B[doc_vector mean-pool word2vec]
+    B --> C[100-d feature vector]
+    C --> D[StandardScaler fit on train only]
+    D --> E[Frozen features no gradient]
+    E --> F[Small trainable head]
+    F --> G[Sentiment label neg or pos]

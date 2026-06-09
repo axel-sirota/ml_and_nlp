@@ -1,0 +1,7 @@
+graph TD
+    A[Input 100-d averaged word2vec] --> B[Linear 100 to 128]
+    B --> C[ReLU nonlinearity]
+    C --> D[Dropout 0.3 train only]
+    D --> E[Linear 128 to 2]
+    E --> F[Raw logits neg pos]
+    F --> G[CrossEntropyLoss applies softmax]

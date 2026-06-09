@@ -1,0 +1,8 @@
+graph TD
+    A[Review string] --> B[Lowercase and split into tokens]
+    B --> C{word in wv.key_to_index}
+    C -->|known| D[Look up 100-dim word vector]
+    C -->|OOV| E[Skip the word]
+    D --> F[Collect kept word vectors]
+    F --> G[Mean-pool average over all vectors]
+    G --> H[One 100-dim document vector]

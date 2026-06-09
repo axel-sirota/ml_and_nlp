@@ -1,0 +1,9 @@
+graph TD
+    A[Raw IMDB review text] --> B[doc_vector average pretrained word vectors]
+    B --> C[One 100-dim feature per review]
+    C --> D[LogisticRegression baseline accuracy]
+    C --> E[MLPClassifier trained with B6 loop]
+    D --> F[Compare on held-out test set]
+    E --> F
+    F --> G[MLP beats the baseline]
+    G --> H[Measure gap to pretrained transformer]

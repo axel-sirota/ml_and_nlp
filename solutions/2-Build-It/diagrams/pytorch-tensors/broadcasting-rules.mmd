@@ -1,0 +1,7 @@
+flowchart LR
+    A[Two tensors, different shapes] --> B[Rule 1: prepend 1s to smaller shape]
+    B --> C[Rule 2: stretch size-1 dims to match]
+    C --> D{All dims now agree?}
+    D -->|Yes| E[Broadcast OK, no data copied]
+    D -->|No| F[RuntimeError: cannot align]
+    E --> G[Example: 3x4 plus 4 is bias add]

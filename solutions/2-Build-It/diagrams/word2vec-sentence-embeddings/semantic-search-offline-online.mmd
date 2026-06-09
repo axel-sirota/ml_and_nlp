@@ -1,0 +1,8 @@
+graph TD
+    A[Corpus of support articles] --> B[Encode once with embedder offline]
+    B --> C[Cached corpus embeddings]
+    D[User query at runtime] --> E[Encode query online]
+    E --> F[util semantic_search against cached embeddings]
+    C --> F
+    F --> G[Top k nearest articles by cosine]
+    G --> H[Retrieval step a RAG chatbot runs before answering]

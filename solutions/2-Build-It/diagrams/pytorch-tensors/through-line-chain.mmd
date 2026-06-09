@@ -1,0 +1,8 @@
+graph TD
+    A[B4 today: tensors plus autograd] --> B[B5: sentence to 384-dim vector]
+    B --> C[B6: vectors through nn.Linear layers]
+    C --> D[B7 stopper: train MLP head]
+    D --> E[C9: backward fine-tunes DistilBERT]
+    E --> F[Gradio chatbot]
+    A -.-> G[loss.backward is the engine]
+    G -.-> D

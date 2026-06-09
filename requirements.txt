@@ -16,7 +16,6 @@ sentence-transformers>=2.7
 
 # Classical NLP / embeddings / topic modelling
 gensim
-bertopic>=0.16
 spacy>=3.7,<3.8
 textblob
 wordcloud

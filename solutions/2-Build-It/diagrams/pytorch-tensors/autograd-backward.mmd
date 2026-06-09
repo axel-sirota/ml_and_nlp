@@ -1,0 +1,8 @@
+graph TD
+    A[w with requires_grad True] --> B[Forward op: loss equals w squared]
+    B --> C[Autograd records graph]
+    C --> D[Call loss.backward on scalar]
+    D --> E[Chain rule flows backward]
+    E --> F[w.grad filled with 2w]
+    F --> G[Update w under no_grad]
+    G --> H[Zero grad, repeat next step]

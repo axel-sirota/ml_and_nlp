@@ -1,0 +1,7 @@
+graph TD
+    A[Input 100-dim document vector] --> B[Linear 100 to 64]
+    B --> C[ReLU]
+    C --> D[Linear 64 to 2]
+    D --> E[Two raw logits neg and pos]
+    E --> F[CrossEntropyLoss applies log-softmax]
+    E --> G[argmax over dim 1 gives predicted class]

@@ -1,0 +1,10 @@
+graph TD
+    A[Train one epoch on train loader] --> B[Evaluate on val loader]
+    B --> C{Val accuracy improved?}
+    C -->|yes| D[Save best checkpoint reset patience]
+    C -->|no| E[Increment patience counter]
+    E --> F{Patience exceeded?}
+    F -->|no| A
+    F -->|yes| G[Early stop]
+    D --> A
+    G --> H[Reload best weights then test once]

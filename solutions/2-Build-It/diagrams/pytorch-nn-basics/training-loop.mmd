@@ -1,0 +1,7 @@
+graph TD
+    A[Next batch xb yb from loader] --> B[zero_grad clear stale gradients]
+    B --> C[forward logits equals model xb]
+    C --> D[loss equals loss_fn logits yb]
+    D --> E[backward compute gradients]
+    E --> F[step update weights]
+    F --> A

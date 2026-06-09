@@ -165,3 +165,14 @@ cython_debug/
 Solutions
 plans/
 **/*.DS_Store
+
+# Smoke-run / training artifacts (generated locally, never committed)
+.venv/
+*.npy
+*.pt
+*.pkl
+distilbert_sst2/
+distilbert_sst2_final/
+distilbert_capstone/
+t5-squad-qa-final/
+capstone_model_A/
