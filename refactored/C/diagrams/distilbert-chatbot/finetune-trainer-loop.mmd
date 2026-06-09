@@ -1,0 +1,11 @@
+graph TD
+    A["pretrained DistilBERT + fresh 2-class head"] --> B["forward pass on a batch"]
+    B --> C["compute loss vs labels"]
+    C --> D["backward pass"]
+    D --> E["AdamW step at LR 2e-5"]
+    E --> F{"epoch done?"}
+    F -->|no| B
+    F -->|yes| G["evaluate accuracy and F1"]
+    G --> H{"all epochs done?"}
+    H -->|no| B
+    H -->|yes| I["reload best checkpoint"]

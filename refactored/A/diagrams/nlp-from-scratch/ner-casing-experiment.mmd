@@ -1,0 +1,9 @@
+graph TD
+    A[Raw article text with natural casing] --> B[Run spaCy NER]
+    B --> C[Many entities found PERSON ORG GPE]
+    A --> D[Lowercase the article]
+    D --> E[Run spaCy NER]
+    E --> F[Few entities found]
+    C --> G[Compare counts raw much greater than lowercased]
+    F --> G
+    G --> H[Lesson always feed RAW text to NER]

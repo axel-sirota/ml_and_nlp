@@ -1,0 +1,7 @@
+graph TD
+    QUERY["User question"] --> SEARCH["semantic_search over help-doc corpus<br/>retrieve top relevant snippet"]
+    SEARCH --> CTX["Retrieved context passage"]
+    QUERY --> QA["answer_question(question, context)"]
+    CTX --> QA
+    QA --> ANSWER["Grounded written answer"]
+    ANSWER --> NOTE["Context grounds the model:<br/>the production fix for off-context hallucination"]

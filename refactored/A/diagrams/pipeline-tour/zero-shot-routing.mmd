@@ -1,0 +1,6 @@
+graph TD
+    A[Support ticket text] --> C[zero-shot-classification pipeline]
+    B[candidate_labels list in plain English] --> C
+    C --> D[Score per label sorted best first]
+    D --> E[labels 0 is the route]
+    D --> F[scores 0 is the confidence]

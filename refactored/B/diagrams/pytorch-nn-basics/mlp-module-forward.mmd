@@ -1,0 +1,6 @@
+graph TD
+    A[Input batch B by 100 features] --> B[fc1 Linear 100 to 64]
+    B --> C[ReLU nonlinearity]
+    C --> D[Dropout 0.2 train only]
+    D --> E[fc2 Linear 64 to 2]
+    E --> F[Raw logits B by 2 no softmax]

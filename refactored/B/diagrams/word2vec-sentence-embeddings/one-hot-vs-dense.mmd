@@ -1,0 +1,11 @@
+graph TD
+    A[Word king] --> B[One-hot vector single 1 rest 0]
+    A --> C[Dense embedding 100 real numbers]
+    B --> D[Cosine to queen equals 0]
+    B --> E[Cosine to dog equals 0]
+    D --> F[king as unrelated to queen as to dog]
+    E --> F
+    C --> G[Cosine to queen high]
+    C --> H[Cosine to dog low]
+    G --> I[Similar words get similar vectors]
+    H --> I

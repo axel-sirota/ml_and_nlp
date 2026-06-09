@@ -1,0 +1,9 @@
+graph TD
+    DATA[Tokenized train set]
+    DATA --> ARGS[Seq2SeqTrainingArguments<br/>lr 3e-4  epochs  batch<br/>predict_with_generate]
+    ARGS --> TR[Seq2SeqTrainer]
+    TR --> FWD[Forward pass<br/>teacher forcing on labels]
+    FWD --> LOSS[Cross entropy loss]
+    LOSS --> UPD[Backprop and update weights]
+    UPD --> TR
+    TR --> EVAL[Eval per epoch<br/>generate on val set]

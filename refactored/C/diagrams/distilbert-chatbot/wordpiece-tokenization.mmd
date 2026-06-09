@@ -1,0 +1,9 @@
+graph TD
+    A["raw text: this is disappointing"] --> B["WordPiece split"]
+    B --> C["disappoint + ##ing"]
+    C --> D["add CLS at front, SEP at end"]
+    D --> E["input_ids (subword IDs)"]
+    D --> F["attention_mask (1 real, 0 pad)"]
+    E --> G["padded rectangular tensor"]
+    F --> G
+    G --> H["fed to DistilBERT"]

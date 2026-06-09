@@ -1,0 +1,8 @@
+graph TD
+    A[Raw articles] --> B[SentenceTransformer all-MiniLM-L6-v2]
+    B --> C[384-dim vector per document]
+    C --> D[KMeans n_clusters 5 fixed seed]
+    D --> E[Cluster id per document]
+    E --> F[Per-cluster TF-IDF on cleaned text]
+    F --> G[Top words per cluster]
+    G --> H[Each cluster named as a topic]

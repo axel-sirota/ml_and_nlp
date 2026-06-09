@@ -1,0 +1,5 @@
+flowchart LR
+    A[Top label confidence] --> B{confidence >= CONF_THRESHOLD}
+    B -->|yes| C[Auto-route to predicted queue]
+    B -->|no| D[ESCALATE_TO_HUMAN]
+    D --> E[Human review queue]

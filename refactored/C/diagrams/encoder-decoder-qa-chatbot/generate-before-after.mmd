@@ -1,0 +1,7 @@
+graph TD
+    Q[Question plus context]
+    Q --> INP[Build prefixed input<br/>tokenize to tensors]
+    INP --> GEN[model.generate<br/>max_new_tokens num_beams]
+    GEN --> DEC[Decode ids to text]
+    DEC --> BEFORE[Un-tuned t5-small<br/>vague or wrong]
+    DEC --> AFTER[Fine-tuned t5-small<br/>matches gold span]

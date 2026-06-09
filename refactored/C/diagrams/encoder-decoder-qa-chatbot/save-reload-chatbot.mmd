@@ -1,0 +1,8 @@
+graph TD
+    TUNED[Fine-tuned model in memory]
+    TUNED --> SAVE[save_pretrained<br/>model and tokenizer to folder]
+    SAVE --> DISK[(Saved folder<br/>weights config vocab)]
+    DISK --> LOAD[from_pretrained<br/>reload model and tokenizer]
+    LOAD --> APP[Gradio Interface]
+    APP --> UI[User types question and context]
+    UI --> ANS[answer_question writes answer]

@@ -1,0 +1,7 @@
+graph TD
+    A[Pretrained backbone] --> B[Freeze requires_grad False]
+    B --> C[Attach fresh Linear head]
+    C --> D[Optimizer over trainable params only]
+    D --> E[Train head a few epochs]
+    E --> F[Unfreeze all requires_grad True]
+    F --> G[Fine-tune at low lr 1e-4]

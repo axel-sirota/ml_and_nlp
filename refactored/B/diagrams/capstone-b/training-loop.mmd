@@ -1,0 +1,9 @@
+graph TD
+    A[Start epoch model.train] --> B[optimizer.zero_grad clear gradients]
+    B --> C[forward pass logits = model xb]
+    C --> D[loss = criterion logits and labels]
+    D --> E[loss.backward backprop the B4 engine]
+    E --> F[optimizer.step update weights]
+    F --> G{more batches}
+    G -->|yes| B
+    G -->|no| H[model.eval no_grad measure val accuracy]

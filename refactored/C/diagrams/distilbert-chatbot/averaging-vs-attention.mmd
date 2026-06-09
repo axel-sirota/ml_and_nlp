@@ -1,0 +1,9 @@
+graph TD
+    A["the update is not good"] --> B["MLP path: average word vectors"]
+    A --> C["Transformer path: attention"]
+    B --> D["mean pooling drops word order"]
+    D --> E["not barely moves the average"]
+    E --> F["predicts POSITIVE (wrong)"]
+    C --> G["good attends to not"]
+    G --> H["context re-weights each token"]
+    H --> I["predicts NEGATIVE (correct)"]

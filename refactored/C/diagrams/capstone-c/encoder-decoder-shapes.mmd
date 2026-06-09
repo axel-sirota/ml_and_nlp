@@ -1,0 +1,8 @@
+graph TD
+    TASK["Your capstone task"] --> Q{"Pick from a short menu<br/>or write new text?"}
+    Q -->|menu| A["Path A: encoder-only<br/>DistilBERT (C9)"]
+    Q -->|write text| B["Path B: encoder-decoder<br/>t5-small (C10)"]
+    A --> AOUT["Output: a label + confidence<br/>cannot invent words"]
+    B --> BOUT["Output: free written text<br/>can hallucinate, must ground"]
+    AOUT --> AUSE["Best for routing, tagging,<br/>sentiment, intent"]
+    BOUT --> BUSE["Best for answering,<br/>summarizing, rewriting"]

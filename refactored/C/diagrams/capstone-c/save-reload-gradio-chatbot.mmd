@@ -1,0 +1,8 @@
+graph TD
+    A["fine-tuned model (Path A or B)"] --> B["save_pretrained: model + tokenizer<br/>id2label travels in config.json"]
+    B --> C["from_pretrained reloads weights + labels"]
+    C --> D["rebind global model and tokenizer"]
+    D --> E["wrap inference fn in gr.Interface<br/>try/except ImportError, share=True"]
+    E --> F["user types into the chatbot"]
+    F --> G["Path A: classify_message -> label + confidence"]
+    F --> H["Path B: answer_question -> written answer"]

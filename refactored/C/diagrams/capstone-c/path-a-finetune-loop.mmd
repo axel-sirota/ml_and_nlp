@@ -1,0 +1,11 @@
+graph TD
+    A["distilbert-base-uncased + fresh N-class head"] --> B["tokenize batch, rename label to labels"]
+    B --> C["Trainer forward pass on a batch"]
+    C --> D["cross entropy loss vs labels"]
+    D --> E["backward pass, AdamW step at LR 2e-5"]
+    E --> F{"epoch done?"}
+    F -->|no| C
+    F -->|yes| G["evaluate accuracy on held-out split"]
+    G --> H{"all epochs done?"}
+    H -->|no| C
+    H -->|yes| I["fine-tuned classifier ready"]

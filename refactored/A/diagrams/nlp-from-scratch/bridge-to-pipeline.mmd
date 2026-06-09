@@ -1,0 +1,8 @@
+flowchart LR
+    A[A1 classical toolbox] --> B[Install packages and download model]
+    B --> C[Custom clean and stopword care]
+    C --> D[spaCy NER and embeddings plus KMeans]
+    D --> E[Entities and topics with effort]
+    E --> F[A2 HuggingFace pipeline]
+    F --> G[One line per task]
+    G --> H[Same outputs much less plumbing]

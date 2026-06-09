@@ -1,0 +1,11 @@
+graph TD
+    A["t5-small + SQuAD as text-to-text"] --> B["build_input, tokenize, text_target labels (-100 pad)"]
+    B --> C["Seq2SeqTrainer forward, teacher forcing"]
+    C --> D["cross entropy loss vs target tokens"]
+    D --> E["backward pass, AdamW step at LR 3e-4"]
+    E --> F{"epoch done?"}
+    F -->|no| C
+    F -->|yes| G["eval per epoch: model.generate on val<br/>predict_with_generate=True"]
+    G --> H{"all epochs done?"}
+    H -->|no| C
+    H -->|yes| I["fine-tuned Q&A model ready"]

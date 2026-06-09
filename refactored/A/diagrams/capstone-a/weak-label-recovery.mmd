@@ -1,0 +1,7 @@
+graph TD
+    A[Customer tweet inbound True] -->|tweet_id| B[Company reply inbound False]
+    B -->|in_response_to_tweet_id points back| A
+    B --> C[author_id of reply]
+    C --> D[Build reply_map parent_id to company]
+    D --> E[Map onto inbound tweets]
+    E --> F[Weak company label for spot-check]

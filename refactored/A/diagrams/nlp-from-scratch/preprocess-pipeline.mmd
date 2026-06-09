@@ -1,0 +1,8 @@
+graph TD
+    A[Raw article text] --> B[clean_text lowercase drop URLs keep letters]
+    B --> C[nlp parse with spaCy]
+    C --> D{Keep token?}
+    D -->|alpha and not stopword and lemma len gt 2| E[Collect token lemma]
+    D -->|else| F[Drop token]
+    E --> G[Join lemmas into clean string]
+    G --> H[bbc clean column ready for topics]

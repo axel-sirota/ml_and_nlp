@@ -1,0 +1,8 @@
+graph TD
+    BLOCK[Same transformer block]
+    BLOCK --> ENC[Encoder only<br/>BERT DistilBERT<br/>reads whole input]
+    BLOCK --> DEC[Decoder only<br/>GPT family<br/>writes token by token]
+    BLOCK --> ED[Encoder decoder<br/>T5 BART<br/>reads then writes]
+    ENC --> ENCOUT[Output: label or vector<br/>C9 classifier]
+    DEC --> DECOUT[Output: text continuation]
+    ED --> EDOUT[Output: new text sequence<br/>C10 QA answer]

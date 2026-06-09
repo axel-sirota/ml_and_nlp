@@ -1,0 +1,7 @@
+flowchart LR
+    A[Averaged word vectors bag of words] --> B{loses word order and negation}
+    B -->|not good looks positive| C[Hard ceiling on accuracy]
+    C --> D{need higher accuracy}
+    D -->|no cheap CPU is enough| E[Ship the averaged-embedding MLP]
+    D -->|yes| F[Part C fine-tune DistilBERT]
+    F --> G[Contextual model serves the Gradio chatbot]

@@ -1,0 +1,9 @@
+graph TD
+    A[Sentence] --> B[Split into words]
+    B --> C[Look up each word vector in wv]
+    C --> D[Average the vectors into one mean vector]
+    D --> E{Two known weaknesses}
+    E --> F[Ignores word order dog bites man equals man bites dog]
+    E --> G[Barely separates antonyms love it vs hate it]
+    F --> H[Weak sentence baseline]
+    G --> H

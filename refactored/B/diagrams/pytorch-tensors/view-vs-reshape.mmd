@@ -1,0 +1,7 @@
+flowchart LR
+    A[Need a new shape] --> B{Is tensor contiguous?}
+    B -->|Yes| C[view works, fast no copy]
+    B -->|No, e.g. after transpose| D[view raises RuntimeError]
+    D --> E[reshape: copies if needed]
+    D --> F[contiguous then view]
+    A --> G[Rule of thumb: prefer reshape]

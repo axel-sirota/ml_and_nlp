@@ -1,0 +1,8 @@
+graph TD
+    QUERY[User question]
+    QUERY --> SEARCH[semantic_search top_k 3<br/>B5 embedder over corpus]
+    SEARCH --> CTX[Retrieved context passage]
+    QUERY --> QA[answer_question]
+    CTX --> QA
+    QA --> ANSWER[Grounded written answer]
+    ANSWER --> NOTE[Context grounds the model<br/>main defense vs hallucination]

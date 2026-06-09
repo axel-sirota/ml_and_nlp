@@ -1,0 +1,8 @@
+graph TD
+    A[good] --> C[Mean-pool word vectors]
+    B[not good] --> C
+    C --> D[Nearly identical 100-d vectors]
+    D --> E[Model cannot tell them apart]
+    E --> F[Negation and order are lost]
+    F --> G[The averaging ceiling]
+    G --> H[Attention in Part C fixes this]

@@ -1,0 +1,9 @@
+graph TD
+    EX[SQuAD example<br/>question context answer]
+    EX --> IN["Input string<br/>question: q  context: c"]
+    EX --> TGT[Target string<br/>first gold answer]
+    IN --> IDS[tokenizer<br/>input_ids]
+    TGT --> LAB[tokenizer text_target<br/>labels]
+    IDS --> COL[DataCollatorForSeq2Seq]
+    LAB --> COL
+    COL --> PAD[Pad batch<br/>label padding set to -100<br/>ignored by loss]

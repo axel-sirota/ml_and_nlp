@@ -1,0 +1,8 @@
+graph TD
+    A[Task name string] --> B[pipeline picks default pretrained model]
+    B --> C[Input text]
+    C --> D[Tokenize into numbers]
+    D --> E[Transformer forward pass]
+    E --> F[Raw model output]
+    F --> G[Postprocess into label score or span]
+    G --> H[Human readable result]

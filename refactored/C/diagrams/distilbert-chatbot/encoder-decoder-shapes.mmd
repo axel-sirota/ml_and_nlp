@@ -1,0 +1,13 @@
+graph TD
+    subgraph EncoderOnly["Encoder-only (DistilBERT)"]
+        E1["whole sentence at once"] --> E2["bidirectional context"]
+        E2 --> E3["best for classification"]
+    end
+    subgraph DecoderOnly["Decoder-only (GPT)"]
+        D1["reads left to right"] --> D2["predicts next token"]
+        D2 --> D3["best for text generation"]
+    end
+    subgraph EncDec["Encoder-decoder (T5 / BART)"]
+        ED1["encode input"] --> ED2["decode output"]
+        ED2 --> ED3["best for seq-to-seq"]
+    end

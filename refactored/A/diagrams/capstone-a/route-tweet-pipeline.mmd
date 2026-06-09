@@ -1,0 +1,9 @@
+graph TD
+    A[Raw customer tweet] --> B[clean_tweet drop URLs and handles]
+    B --> C[zero-shot classify with candidate_labels]
+    C --> D[Top route and confidence]
+    B --> E[NER extract org and product entities]
+    D --> F[Confidence gate]
+    E --> G[Routing metadata]
+    F --> H[Routed ticket with metadata]
+    G --> H

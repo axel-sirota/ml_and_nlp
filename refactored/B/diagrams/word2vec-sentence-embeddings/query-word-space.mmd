@@ -1,0 +1,8 @@
+graph TD
+    A[Pretrained wv 400k words 100 dims] --> B{Word in vocab?}
+    B -->|no| C[KeyError so guard with in wv key_to_index]
+    B -->|yes| D[Look up dense vector lowercase only]
+    D --> E[most_similar topn 5 nearest neighbors]
+    D --> F[similarity word a word b cosine score]
+    E --> G[Read the geometry by meaning]
+    F --> G

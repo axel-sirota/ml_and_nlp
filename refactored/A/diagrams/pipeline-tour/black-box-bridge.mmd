@@ -1,0 +1,7 @@
+graph TD
+    A[A2 pipeline is a sealed black box] --> B[Part B build the pieces inside]
+    B --> C[Tensors and embeddings]
+    B --> D[Neural network and MLP classifier]
+    C --> E[Part C fine-tune distilbert]
+    D --> E
+    E --> F[Load model into Gradio chatbot]

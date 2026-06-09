@@ -1,0 +1,6 @@
+flowchart LR
+    A[Same task sentiment-analysis] --> B{model keyword}
+    B -->|default| C[distilbert sst-2]
+    B -->|model equals| D[twitter-roberta]
+    C --> E[POSITIVE or NEGATIVE]
+    D --> F[positive neutral or negative]

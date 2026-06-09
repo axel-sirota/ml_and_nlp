@@ -1,0 +1,7 @@
+graph TD
+    A[Tweet text becomes premise] --> C[NLI model]
+    B[Candidate label in hypothesis template] --> C
+    C --> D[Entailment score per label]
+    D --> E[Scores sorted best first]
+    E --> F[labels 0 is predicted route]
+    E --> G[scores 0 is confidence]

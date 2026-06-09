@@ -1,0 +1,6 @@
+flowchart LR
+    A[B7 frozen word2vec plus MLP head] --> B[Beats LogReg baseline around 80 pct]
+    B --> C[Homework frozen SBERT 384-d plus same head]
+    C --> D[Lift to around 89 pct]
+    D --> E[C9 fine-tune DistilBERT encoder itself]
+    E --> F[Beats SBERT loaded into Gradio chatbot]

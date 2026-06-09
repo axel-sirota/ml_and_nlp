@@ -1,0 +1,8 @@
+graph TD
+    A["fine-tuned model"] --> B["save_pretrained: config.json + safetensors"]
+    B --> C["from_pretrained reloads weights + id2label"]
+    C --> D["build text-classification pipeline"]
+    D --> E["wrap in gradio Interface"]
+    E --> F["teammate types a message"]
+    F --> G["pipeline classifies"]
+    G --> H["POSITIVE or NEGATIVE + confidence"]
