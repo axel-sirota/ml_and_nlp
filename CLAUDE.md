@@ -34,8 +34,8 @@ Additional:
 
 ## Notebook Conventions
 
-- **Naming**: `[NUMBER]-[Topic_Name].ipynb` (e.g., `8-ML_and_NLP_MLP.ipynb`)
-- **Capstones**: `[NUMBER]-Capstone-Topic-[N].ipynb` at the end of each module
+- **Naming**: `[NUMBER]-[Topic_Name].ipynb` (e.g., `8-MLP_Text_Classification.ipynb`)
+- **Capstones**: `[NUMBER]-Capstone_[N].ipynb` at the end of each module (e.g., `10-Capstone_2.ipynb`)
 - **Structure per topic**: Theory markdown -> Demo code -> Lab with `None # YOUR CODE` placeholders
 - **Exercise notebooks** have starter code; **Solution notebooks** have completed implementations
 - **Datasets**: Public only (CSV from Dropbox URLs, sklearn datasets, HuggingFace datasets). No local data files checked in.
