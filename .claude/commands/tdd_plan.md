@@ -133,3 +133,4 @@ Create the final comprehensive plan that incorporates learnings from all 3 cycle
 - **DO** incorporate learnings from previous cycles into the next
 - **DO** read actual code files, not just summaries
 - **DO** consider the existing architecture patterns (see CLAUDE.md and vibe files)
+
